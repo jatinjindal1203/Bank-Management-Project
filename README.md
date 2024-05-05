@@ -1,6 +1,6 @@
 # Bank-Project
 
-Built using HTML, CSS, Bootstrap, Python, Flask, MySQL.
+Built using HTML, CSS, Bootstrap, Python, Flask, MySQL, JavaScript.
 
 This Provides the typiclly basic functionality that a bank provides like deposit, withdraw, transfer of money and taking a loam and payment of loan.
 
