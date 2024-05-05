@@ -72,49 +72,4 @@ INSERT INTO Branch (branch_name, location, phone_number) VALUES
 
 
 
--- functionality queries
--- Sign up query
-INSERT INTO Customer (customer_name , customer_password , email , phone_number , address , date_of_birth) VALUES ("abc" , "123@abc" , "abc@gmail.com" , "1234567890" ,"address" , "YYYY-MM-DD");
-
--- Sign in query
-SELECT * FROM Customer 
-WHERE customer_id = 123 AND customer_password = "abc@123";
-
--- Balance check query
-SELECT balance FROM Account
-WHERE account_number = 124;
-
--- Amount deposit query
-UPDATE Account 
-SET balance = balance + 1000
-WHERE account_number = 124;
-
--- Amount withdraw query
-UPDATE Account 
-SET balance = balance - 1000
-WHERE account_number = 124;
-
--- Transfer
--- SENDER
-UPDATE Account 
-SET balance = balance - 1000
-WHERE account_number = 124;
--- RECIEVER
-UPDATE Account 
-SET balance = balance + 1000
-WHERE account_number = 123;
-
--- Transaction
-SELECT * FROM Transaction
-WHERE account_number = 124
-ORDER BY transaction_date DESC;
-
--- Loan
-INSERT INTO Loan(customer_id , account_number, loan_amount) VALUES (12,244,10000);
-
--- Loan status
-SELECT status FROM Loan
-WHERE loan_id = 2234;
-
-
 
