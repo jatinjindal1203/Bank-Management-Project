@@ -15,17 +15,6 @@ app = Flask(__name__)
 secret_key = secrets.token_hex(16)
 app.secret_key = secret_key
 
-# def get_account_info(customer_id):
-#     try:
-#         mycursor.execute("SELECT * FROM Account where customer_id = %s", (customer_id,))
-#         accounts = mycursor.fetchall()
-#         print("Accounts_inside_func:", accounts)  # Add this line for debugging
-#         return accounts
-#     except mysql.connector.Error as err:
-#         print("Error:", err)
-#         return []
-
-    
 @app.route('/')
 def home():
     if 'login_cust_id' in session:
@@ -42,14 +31,13 @@ def home():
     else:
         return redirect(url_for('login'))
 
-    
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         cust_id = request.form['customer_id']
         cust_password = request.form['password']
         
-        sql = "select customer_password from customer where customer_id = %s"
+        sql = "SELECT customer_password FROM Customer WHERE customer_id = %s"
         mycursor.execute(sql, (cust_id,))
         password = mycursor.fetchone()
         
@@ -61,12 +49,11 @@ def login():
         return render_template('login.html', title='Login', error=error)
     else:
         return render_template('login.html', title='Login')
-    
+
 @app.route('/logout', methods=['POST'])
 def logout():
     session.pop('login_cust_id', None)
     return redirect(url_for('login'))
-    
 
 def insert_account_data(data, customer_id):
     try:
@@ -96,12 +83,10 @@ def insert_account_data(data, customer_id):
         print("Error:", err)
         return False
 
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-
-        mycursor.execute("select customer_id from customer order by customer_id desc limit 1")
+        mycursor.execute("SELECT customer_id FROM Customer ORDER BY customer_id DESC LIMIT 1")
         last_customer = mycursor.fetchone()
         if last_customer:
             last_customer_id = last_customer[0]
@@ -118,11 +103,11 @@ def register():
             'dob': request.form['dob'],
             'password': request.form['password'],
             'branch': request.form['branch'],
-            'type' : request.form['account_type']
+            'type': request.form['account_type']
         }
         
         # Insert account data into the database
-        if insert_account_data(account_data,new_customer_id):
+        if insert_account_data(account_data, new_customer_id):
             mycursor.execute("SELECT account_number FROM Account WHERE customer_id = %s", (new_customer_id,))
             account_number = mycursor.fetchone()[0]
 
@@ -132,8 +117,6 @@ def register():
             return "Error occurred while opening the account. Please try again later."
     else:
         return render_template('register.html')
-
-
 
 def get_account_info(customer_id):
     try:
@@ -175,6 +158,14 @@ def insert_transaction(account_number, transaction_type, amount):
         print("Error:", err)
         return False
 
+def account_exists(account_number):
+    try:
+        mycursor.execute("SELECT account_number FROM Account WHERE account_number = %s", (account_number,))
+        account = mycursor.fetchone()
+        return account is not None
+    except mysql.connector.Error as err:
+        print("Error:", err)
+        return False
 
 # Deposit money route
 @app.route('/deposit', methods=['POST'])
@@ -190,10 +181,10 @@ def deposit():
                     return redirect(url_for('successful', message=message))
                 else:
                     error_message = "Error occurred while depositing money. Please try again later."
-                    return redirect(url_for('error',message = error_message))
+                    return redirect(url_for('error', message=error_message))
             else:
                 error_message = "No account found for the logged-in customer."
-                return redirect(url_for('error',message = error_message))
+                return redirect(url_for('error', message=error_message))
         else:
             return redirect(url_for('login'))
 
@@ -214,16 +205,15 @@ def withdraw():
                         return redirect(url_for('successful', message=message))
                     else:
                         error_message = "Error occurred while withdrawing money. Please try again later."
-                        return redirect(url_for('error',message = error_message))
+                        return redirect(url_for('error', message=error_message))
                 else:
                     error_message = "Insufficient balance to withdraw."
-                    return redirect(url_for('error',message = error_message))
+                    return redirect(url_for('error', message=error_message))
             else:
-                error_message =  "No account found for the logged-in customer."
-                return redirect(url_for('error',message = error_message))
+                error_message = "No account found for the logged-in customer."
+                return redirect(url_for('error', message=error_message))
         else:
             return redirect(url_for('login'))
-
 
 # Transfer money route
 @app.route('/transfer', methods=['POST'])
@@ -236,19 +226,23 @@ def transfer():
             if sender_account_number:
                 sender_balance = get_balance(sender_account_number)
                 if sender_balance is not None and sender_balance >= transfer_amount:
-                    if update_balance(sender_account_number, -transfer_amount):
-                        if update_balance(recipient_account_number, transfer_amount):
-                            insert_transaction(sender_account_number, 'transfer', -transfer_amount)
-                            insert_transaction(recipient_account_number, 'transfer', transfer_amount)
-                            message = "Transfer Successful"
-                            return redirect(url_for('successful', message=message))
+                    if account_exists(recipient_account_number):  # Check if recipient account exists
+                        if update_balance(sender_account_number, -transfer_amount):
+                            if update_balance(recipient_account_number, transfer_amount):
+                                insert_transaction(sender_account_number, 'transfer', -transfer_amount)
+                                insert_transaction(recipient_account_number, 'transfer', transfer_amount)
+                                message = "Transfer Successful"
+                                return redirect(url_for('successful', message=message))
+                            else:
+                                # Revert sender's balance if recipient's balance update fails
+                                update_balance(sender_account_number, transfer_amount)
+                                error_message = "Error occurred while transferring money. Please try again later."
+                                return redirect(url_for('error', message=error_message))
                         else:
-                            # Revert sender's balance if recipient's balance update fails
-                            update_balance(sender_account_number, transfer_amount)
                             error_message = "Error occurred while transferring money. Please try again later."
                             return redirect(url_for('error', message=error_message))
                     else:
-                        error_message = "Error occurred while transferring money. Please try again later."
+                        error_message = "Recipient account does not exist."
                         return redirect(url_for('error', message=error_message))
                 else:
                     error_message = "Insufficient balance to transfer."
@@ -259,12 +253,10 @@ def transfer():
         else:
             return redirect(url_for('login'))
 
-
 @app.route('/error')
 def error():
     error_message = request.args.get('message', 'An error occurred.')
     return render_template('error.html', error=error_message)
-
 
 def start_transaction():
     try:
@@ -352,7 +344,6 @@ def loan():
         interest_rate = 5.0  # Example predefined interest rate
         return render_template('loan.html', interest_rate=interest_rate)
 
-
 @app.route('/loan_payment', methods=['POST'])
 def loan_payment():
     if 'login_cust_id' in session:
@@ -375,7 +366,6 @@ def loan_payment():
 
                 try:
                     # Update account balance
-                    #new_balance = account_balance - amount_payable
                     if update_balance(account_number, -amount_payable):
                         # Add entry in the transaction table as withdrawal
                         insert_transaction(account_number, 'withdrawal', amount_payable)
@@ -400,12 +390,11 @@ def loan_payment():
             return "Loan details not found."
     else:
         return redirect(url_for('home'))
-    
-@app.route('/succesful')
+
+@app.route('/successful')
 def successful():
     message = request.args.get('message', 'Successful.')
-    return render_template('successful.html', sucess_msg=message)
-
+    return render_template('successful.html', success_msg=message)
 
 if __name__ == '__main__':
     app.run(debug=True)
